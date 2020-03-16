@@ -1,68 +1,58 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Dead simple Vue static site on Azure AppService
 
-## Available Scripts
+This is a sample project to show you how you can run React as a static site on [Azure AppService](https://code.visualstudio.com/tutorials/app-service-extension/getting-started?WT.mc_id=personal-github-buhollan). Azure AppService offers both Linux and Windows hosting, so this project covers both.
 
-In the project directory, you can run:
+## Linux
 
-### `yarn start`
+Node on Azure AppService for Linux does not come with a web server. This means we need to bring one of our own. The easiest way to do that is to use a Node web server like [serve](https://www.npmjs.com/package/serve). Azure uses [pm2](http://pm2.keymetrics.io/) behind the scenes, so we can start "serve" with the simplest possible `ecosystem.config.js` file. The "-s" flag makes sure that single page application routing works.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+```
+module.exports = {
+  apps: [
+    {
+      script: "npx serve -s"
+    }
+  ]
+};
+```
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+This file needs to be in the "build" folder after a build, so put them in the "public" folder in your Vue project. Anything in the "public" folder gets copied directly to the root of "build".
 
-### `yarn test`
+### Deploy just the build folder
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Now deploy the "build" folder to Azure AppService via the App Service VS Code extension or Azure DevOps.
 
-### `yarn build`
+### Deploy and Build in App Service
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
+App Service for Linux knows how to build applications that contain a "build" script in the package.json file.
 
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
+## Windows
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Windows hosting has a built-in web server (IIS), so your project will "just work" when you deploy it. Kind of.
 
-### `yarn eject`
+You will need to inform IIS to route all traffic to our one `index.html` page. This requires a `web.config` file.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```
+<?xml version="1.0"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="Vue" stopProcessing="true">
+          <match url=".*" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+          </conditions>
+          <action type="Rewrite" url="/" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+That says route all traffic to `index.html` UNLESS the request is for a file. We need that exception in there because `index.html` is a file and we need it to work.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+We want this `web.config` file to be in the root of the "dist" folder, so we can just put it in the "public" folder in our Vue project and check it right into source control.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
-
-### Analyzing the Bundle Size
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
-
-### Making a Progressive Web App
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
-
-### Advanced Configuration
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
-
-### Deployment
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
-
-### `yarn build` fails to minify
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+That's it!
